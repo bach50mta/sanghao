@@ -1,0 +1,12 @@
+{
+  "app": {
+    "title": "Thức Ăn Gia Súc Sáng Hào",
+    "headerTitle": "Sáng Hào - Cám & Thức Ăn Chăn Nuôi",
+    "headerColor": "#15803D",
+    "textColor": "white",
+    "statusBar": "transparent",
+    "actionBarHidden": false,
+    "hideAndroidBottomNavigationBar": false,
+    "hideIOSSafeAreaBottom": false
+  }
+}
