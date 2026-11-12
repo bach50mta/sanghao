@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { DebtPayment, PaymentReceipt, CustomerDebtSummary } from '../types';
 import { ManagedOrder } from './orderStore';
+import { clearTable, deleteRecord, upsertRecord } from '../lib/supabaseSync';
 
 export interface DebtPreview {
   lastPaymentDate?: string;
@@ -18,6 +19,7 @@ export interface DebtPreview {
 
 interface DebtState {
   payments: DebtPayment[];
+  hydratePayments: (payments: DebtPayment[]) => void;
   addPayment: (data: Omit<DebtPayment, 'paymentId' | 'paidAt'>) => DebtPayment;
   deletePayment: (paymentId: string) => void;
   clearAllPayments: () => void;
@@ -207,6 +209,14 @@ function buildCustomerDebtSummary(
 export const useDebtStore = create<DebtState>((set, get) => ({
   payments: loadPayments(),
 
+  hydratePayments: (remotePayments) => {
+    const sorted = remotePayments
+      .slice()
+      .sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
+    savePayments(sorted);
+    set({ payments: sorted });
+  },
+
   addPayment: (data) => {
     const newPayment: DebtPayment = {
       ...data,
@@ -220,6 +230,7 @@ export const useDebtStore = create<DebtState>((set, get) => ({
       return { payments: updated };
     });
 
+    void upsertRecord('debt_payments', newPayment.paymentId, newPayment);
     return newPayment;
   },
 
@@ -229,6 +240,7 @@ export const useDebtStore = create<DebtState>((set, get) => ({
       savePayments(updated);
       return { payments: updated };
     });
+    void deleteRecord('debt_payments', paymentId);
   },
 
   clearAllPayments: () => {
@@ -239,6 +251,7 @@ export const useDebtStore = create<DebtState>((set, get) => ({
       // Ignore
     }
     set({ payments: [] });
+    void clearTable('debt_payments');
   },
 
   getCustomerDebtAt: (phone, orders, beforeDate) => {

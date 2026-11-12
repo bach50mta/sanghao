@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { CartItem, Order } from '../types';
 import { resetOrderSequence } from '../utils/format';
+import {
+  clearTable,
+  deleteRecord,
+  upsertMany,
+  upsertRecord,
+} from '../lib/supabaseSync';
 
 export type DeliveryStatus = 'pending' | 'shipping' | 'delivered';
 export type PaymentStatus = 'unpaid' | 'paid';
@@ -16,6 +22,7 @@ export interface ManagedOrder extends Order {
 
 interface OrderState {
   orders: ManagedOrder[];
+  hydrateOrders: (orders: ManagedOrder[]) => void;
   addOrder: (order: Order) => void;
   updateStatus: (orderId: string, status: OrderStatus) => void;
   updateDeliveryStatus: (orderId: string, deliveryStatus: DeliveryStatus) => void;
@@ -85,8 +92,21 @@ function saveOrders(orders: ManagedOrder[]) {
   }
 }
 
+function syncOrderById(orders: ManagedOrder[], orderId: string): void {
+  const target = orders.find((o) => o.orderId === orderId);
+  if (target) void upsertRecord('orders', target.orderId, target);
+}
+
 export const useOrderStore = create<OrderState>((set) => ({
   orders: loadOrders(),
+
+  hydrateOrders: (remoteOrders) => {
+    const normalized = remoteOrders
+      .map(normalizeOrder)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    saveOrders(normalized);
+    set({ orders: normalized });
+  },
 
   addOrder: (order) => {
     set((state) => {
@@ -98,6 +118,7 @@ export const useOrderStore = create<OrderState>((set) => ({
       };
       const updated: ManagedOrder[] = [managed, ...state.orders];
       saveOrders(updated);
+      void upsertRecord('orders', managed.orderId, managed);
       return { orders: updated };
     });
   },
@@ -118,6 +139,7 @@ export const useOrderStore = create<OrderState>((set) => ({
         };
       });
       saveOrders(updated);
+      syncOrderById(updated, orderId);
       return { orders: updated };
     });
   },
@@ -136,6 +158,7 @@ export const useOrderStore = create<OrderState>((set) => ({
         };
       });
       saveOrders(updated);
+      syncOrderById(updated, orderId);
       return { orders: updated };
     });
   },
@@ -154,6 +177,7 @@ export const useOrderStore = create<OrderState>((set) => ({
         };
       });
       saveOrders(updated);
+      syncOrderById(updated, orderId);
       return { orders: updated };
     });
   },
@@ -173,6 +197,7 @@ export const useOrderStore = create<OrderState>((set) => ({
         };
       });
       saveOrders(updated);
+      syncOrderById(updated, orderId);
       return { orders: updated };
     });
   },
@@ -192,6 +217,10 @@ export const useOrderStore = create<OrderState>((set) => ({
         };
       });
       saveOrders(updated);
+      void upsertMany(
+        'orders',
+        updated.filter((o) => idSet.has(o.orderId)).map((o) => ({ id: o.orderId, data: o })),
+      );
       return { orders: updated };
     });
   },
@@ -209,6 +238,10 @@ export const useOrderStore = create<OrderState>((set) => ({
         };
       });
       saveOrders(updated);
+      void upsertMany(
+        'orders',
+        updated.filter((o) => idSet.has(o.orderId)).map((o) => ({ id: o.orderId, data: o })),
+      );
       return { orders: updated };
     });
   },
@@ -228,6 +261,7 @@ export const useOrderStore = create<OrderState>((set) => ({
         };
       });
       saveOrders(updated);
+      syncOrderById(updated, orderId);
       return { orders: updated };
     });
   },
@@ -261,6 +295,7 @@ export const useOrderStore = create<OrderState>((set) => ({
         return editedOrder;
       });
       saveOrders(updated);
+      if (editedOrder) void upsertRecord('orders', editedOrder.orderId, editedOrder);
       return { orders: updated };
     });
     return editedOrder;
@@ -270,6 +305,7 @@ export const useOrderStore = create<OrderState>((set) => ({
     set((state) => {
       const updated: ManagedOrder[] = state.orders.filter((o) => o.orderId !== orderId);
       saveOrders(updated);
+      void deleteRecord('orders', orderId);
       return { orders: updated };
     });
   },
@@ -282,5 +318,6 @@ export const useOrderStore = create<OrderState>((set) => ({
       // Ignore
     }
     set({ orders: [] });
+    void clearTable('orders');
   }
 }));

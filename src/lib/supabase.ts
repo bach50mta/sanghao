@@ -10,3 +10,4 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
       auth: { persistSession: false },
     })
   : null;
+

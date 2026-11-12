@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { Order } from './types';
+import { initSupabaseSync } from './lib/initSync';
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
 import { BottomBar } from './components/BottomBar';
@@ -26,6 +27,10 @@ export const App: React.FC = () => {
   const clearCart = useCartStore((state) => state.clearCart);
   const products = useProductStore((state) => state.products);
   const addOrderToStore = useOrderStore((state) => state.addOrder);
+
+  useEffect(() => {
+    return initSupabaseSync();
+  }, []);
 
   // Hiển thị toàn bộ danh sách sản phẩm từ productStore, chỉ lọc theo ô tìm kiếm nếu có
   const filteredProducts = useMemo(() => {

@@ -71,3 +71,4 @@ begin
   alter publication supabase_realtime add table public.debt_payments;
 exception when duplicate_object then null;
 end $$;
+
